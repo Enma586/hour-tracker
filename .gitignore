@@ -1,0 +1,12 @@
+node_modules/
+dist/
+.env.local
+.env.*.local
+*.log
+.DS_Store
+.vite/
+
+.env
+.env.development
+.env.production 
+.kombai
