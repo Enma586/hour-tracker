@@ -18,6 +18,7 @@ export function useCreateExpense() {
     mutationFn: (data: CreateExpenseDTO) => service.createExpense(data),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: expensesKey })
+      queryClient.invalidateQueries({ queryKey: ['balance'] })
     },
   })
 }

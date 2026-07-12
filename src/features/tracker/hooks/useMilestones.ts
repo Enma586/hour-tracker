@@ -29,6 +29,7 @@ export function useAddFunds() {
     mutationFn: (data: AddFundsDTO) => service.addFundsToMilestone(data),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: milestonesKey })
+      queryClient.invalidateQueries({ queryKey: ['balance'] })
     },
   })
 }

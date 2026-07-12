@@ -50,6 +50,8 @@ export async function createExpense(data: CreateExpenseDTO): Promise<string> {
     date: data.date,
     createdAt: new Date(),
   })
+  const balance = await getBalance()
+  await upsertBalance({ total: (balance.total ?? 0) - data.amount })
   return docRef.id
 }
 
@@ -85,6 +87,8 @@ export async function addFundsToMilestone({ milestoneId, amount }: AddFundsDTO):
   await updateDoc(ref, {
     currentAmount: current.currentAmount + amount,
   })
+  const balance = await getBalance()
+  await upsertBalance({ total: (balance.total ?? 0) - amount })
 }
 
 const balanceRef = doc(db, 'balance', 'main')
