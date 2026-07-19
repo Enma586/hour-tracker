@@ -1,10 +1,12 @@
 import { useState } from 'react'
-import { useWeeklyStats, useExpenses, useMilestones, useRecentEntries } from '../hooks'
+import { useWeeklyStats, useExpenses, useMilestones, useRecentEntries, useFixedExpenses } from '../hooks'
 import { Header } from '../components/Header'
 import { DashboardCard } from '../components/DashboardCard'
 import { Calendar } from '../components/Calendar'
 import { TotalBalanceCard } from '../components/TotalBalanceCard'
 import { MilestoneCard } from '../components/MilestoneCard'
+import { FixedExpenseCard } from '../components/FixedExpenseCard'
+import { EmergencyFundCard } from '../components/EmergencyFundCard'
 import { FinancialStream } from '../components/FinancialStream'
 import { QuickActions } from '../components/QuickActions'
 import { config } from '@/lib/config'
@@ -16,6 +18,7 @@ export default function TrackerPage() {
   const { data: stats } = useWeeklyStats()
   const { data: expenses = [] } = useExpenses()
   const { data: milestones = [] } = useMilestones()
+  const { data: fixedExpenses = [] } = useFixedExpenses()
   const { data: entries = [] } = useRecentEntries()
 
   const entryHours: Record<string, number> = {}
@@ -57,6 +60,8 @@ export default function TrackerPage() {
 
           <div className="lg:col-span-4 space-y-6">
             <TotalBalanceCard />
+            <EmergencyFundCard />
+            <FixedExpenseCard fixedExpenses={fixedExpenses} />
             <MilestoneCard milestones={milestones} selectedDate={selectedDate} onDateSelect={setSelectedDate} />
             <FinancialStream expenses={expenses} selectedDate={selectedDate} />
             <QuickActions selectedDate={selectedDate} />

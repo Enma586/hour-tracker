@@ -1,4 +1,5 @@
 export { useRecentEntries, useWeeklyEntries, useCreateEntry, useWeeklyStats } from './useEntries'
-export { useExpenses, useCreateExpense } from './useExpenses'
-export { useMilestones, useCreateMilestone, useAddFunds } from './useMilestones'
+export { useExpenses, useCreateExpense, useDeleteExpense } from './useExpenses'
+export { useMilestones, useCreateMilestone, useUpdateMilestone, useAddFunds } from './useMilestones'
+export { useFixedExpenses, useCreateFixedExpense, useUpdateFixedExpense, useResetFixedExpense } from './useFixedExpenses'
 export { useBalance } from './useBalance'

@@ -18,6 +18,20 @@ export function useCreateMilestone() {
     mutationFn: (data: CreateMilestoneDTO) => service.createMilestone(data),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: milestonesKey })
+      queryClient.invalidateQueries({ queryKey: ['balance'] })
+    },
+  })
+}
+
+export function useUpdateMilestone() {
+  const queryClient = useQueryClient()
+
+  return useMutation({
+    mutationFn: ({ id, data }: { id: string; data: { currentAmount?: number; goalAmount?: number } }) =>
+      service.updateMilestone(id, data),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: milestonesKey })
+      queryClient.invalidateQueries({ queryKey: ['balance'] })
     },
   })
 }

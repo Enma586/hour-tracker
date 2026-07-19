@@ -53,11 +53,33 @@ export interface CreateMilestoneDTO {
 export interface AddFundsDTO {
   milestoneId: string
   amount: number
+  external?: boolean
 }
 
 export interface Balance {
   total: number
+  emergencyFund: number
   lastProcessedWeek: string
+  reconciled: boolean
+}
+
+export interface FixedExpense {
+  id: string
+  name: string
+  budgetAmount: number
+  spentAmount: number
+  createdAt: Timestamp
+}
+
+export interface CreateFixedExpenseDTO {
+  name: string
+  budgetAmount: number
+  spentAmount: number
+}
+
+export interface UpdateFixedExpenseDTO {
+  budgetAmount?: number
+  spentAmount?: number
 }
 
 export const MILESTONE_CATEGORIES = [
@@ -78,6 +100,13 @@ export const EXPENSE_CATEGORIES = [
   'Health',
   'Education',
   'Other',
+  'Technology'
+] as const
+
+export const FIXED_EXPENSE_CATEGORIES = [
+  'Suscripciones',
+  'Alimentos',
+  'Diezmo',
 ] as const
 
 export interface WeeklyStats {

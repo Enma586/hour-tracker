@@ -5,7 +5,7 @@ import { z } from 'zod'
 import { format, parseISO } from 'date-fns'
 import type { Expense } from '../types'
 import { EXPENSE_CATEGORIES } from '../types'
-import { useCreateExpense } from '../hooks'
+import { useCreateExpense, useDeleteExpense } from '../hooks'
 
 interface Props {
   expenses: Expense[]
@@ -22,7 +22,9 @@ type FormData = z.infer<typeof expenseSchema>
 
 export function FinancialStream({ expenses, selectedDate }: Props) {
   const [showForm, setShowForm] = useState(false)
+  const [deletingId, setDeletingId] = useState<string | null>(null)
   const createExpense = useCreateExpense()
+  const deleteExpense = useDeleteExpense()
   const { register, handleSubmit, reset, formState: { errors } } = useForm<FormData>({
     resolver: zodResolver(expenseSchema),
     defaultValues: { category: EXPENSE_CATEGORIES[0] },
@@ -56,7 +58,7 @@ export function FinancialStream({ expenses, selectedDate }: Props) {
         )}
 
         {expenses.map(expense => (
-          <div key={expense.id} className="flex items-center justify-between p-4 glass-dark rounded-2xl border border-white/5 hover:border-white/20 transition-all group cursor-default">
+          <div key={expense.id} className="flex items-center justify-between p-4 glass-dark rounded-2xl border border-white/5 hover:border-white/20 transition-all group">
             <div className="flex items-center gap-3">
               <div className="w-9 h-9 rounded-xl bg-white/5 flex items-center justify-center group-hover:bg-white/10 transition-colors">
                 <svg className="w-4 h-4 text-white/60" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
@@ -74,7 +76,21 @@ export function FinancialStream({ expenses, selectedDate }: Props) {
                 </div>
               </div>
             </div>
-            <span className="text-sm font-semibold text-white group-hover:scale-105 transition-transform">-${expense.amount.toFixed(2)}</span>
+            <div className="flex items-center gap-3">
+              <button
+                onClick={() => {
+                  setDeletingId(expense.id)
+                  deleteExpense.mutateAsync({ id: expense.id, amount: expense.amount })
+                    .catch(() => console.error('Failed to delete'))
+                    .finally(() => setDeletingId(null))
+                }}
+                disabled={deletingId === expense.id}
+                className="opacity-0 group-hover:opacity-100 transition-opacity text-[9px] text-red-400/60 hover:text-red-400 font-semibold uppercase tracking-widest cursor-pointer disabled:opacity-30"
+              >
+                {deletingId === expense.id ? '...' : 'Delete'}
+              </button>
+              <span className="text-sm font-semibold text-white">-${expense.amount.toFixed(2)}</span>
+            </div>
           </div>
         ))}
 

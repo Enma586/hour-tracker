@@ -13,11 +13,12 @@ import {
   where,
 } from 'firebase/firestore'
 import { db } from '@/lib/firebase'
-import type { TimeEntry, CreateTimeEntryDTO, Expense, CreateExpenseDTO, Milestone, CreateMilestoneDTO, AddFundsDTO, Balance } from '../types'
+import type { TimeEntry, CreateTimeEntryDTO, Expense, CreateExpenseDTO, Milestone, CreateMilestoneDTO, AddFundsDTO, Balance, FixedExpense, CreateFixedExpenseDTO, UpdateFixedExpenseDTO } from '../types'
 
 const entriesRef = collection(db, 'entries')
 const expensesRef = collection(db, 'expenses')
 const milestonesRef = collection(db, 'milestones')
+const fixedExpensesRef = collection(db, 'fixedExpenses')
 
 export async function upsertEntry(data: CreateTimeEntryDTO): Promise<string> {
   const q = query(entriesRef, where('date', '==', data.date))
@@ -61,6 +62,12 @@ export async function getRecentExpenses(limitCount = 10): Promise<Expense[]> {
   return snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Expense))
 }
 
+export async function deleteExpense(id: string, amount: number): Promise<void> {
+  await deleteDoc(doc(db, 'expenses', id))
+  const balance = await getBalance()
+  await upsertBalance({ total: (balance.total ?? 0) + amount })
+}
+
 export async function createMilestone(data: CreateMilestoneDTO): Promise<string> {
   const docRef = await addDoc(milestonesRef, {
     name: data.name,
@@ -70,6 +77,8 @@ export async function createMilestone(data: CreateMilestoneDTO): Promise<string>
     targetDate: data.targetDate ?? null,
     createdAt: new Date(),
   })
+  const balance = await getBalance()
+  await upsertBalance({ total: (balance.total ?? 0) - data.currentAmount })
   return docRef.id
 }
 
@@ -79,7 +88,28 @@ export async function getMilestones(): Promise<Milestone[]> {
   return snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Milestone))
 }
 
-export async function addFundsToMilestone({ milestoneId, amount }: AddFundsDTO): Promise<void> {
+export async function updateMilestone(id: string, data: { currentAmount?: number; goalAmount?: number }): Promise<void> {
+  const ref = doc(db, 'milestones', id)
+  const snap = await getDoc(ref)
+  const current = snap.data() as Milestone | undefined
+  if (!current) throw new Error('Milestone not found')
+  const fields: Record<string, number> = {}
+  if (data.currentAmount !== undefined) fields.currentAmount = data.currentAmount
+  if (data.goalAmount !== undefined) fields.goalAmount = data.goalAmount
+  await updateDoc(ref, fields)
+  if (data.currentAmount !== undefined) {
+    const diff = data.currentAmount - current.currentAmount
+    if (diff > 0) {
+      const balance = await getBalance()
+      await upsertBalance({ total: (balance.total ?? 0) - diff })
+    } else if (diff < 0) {
+      const balance = await getBalance()
+      await upsertBalance({ total: (balance.total ?? 0) + Math.abs(diff) })
+    }
+  }
+}
+
+export async function addFundsToMilestone({ milestoneId, amount, external }: AddFundsDTO): Promise<void> {
   const ref = doc(db, 'milestones', milestoneId)
   const snap = await getDoc(ref)
   const current = snap.data() as Milestone | undefined
@@ -87,17 +117,101 @@ export async function addFundsToMilestone({ milestoneId, amount }: AddFundsDTO):
   await updateDoc(ref, {
     currentAmount: current.currentAmount + amount,
   })
-  const balance = await getBalance()
-  await upsertBalance({ total: (balance.total ?? 0) - amount })
+  if (!external) {
+    const balance = await getBalance()
+    await upsertBalance({ total: (balance.total ?? 0) - amount })
+  }
+}
+
+export async function getFixedExpenses(): Promise<FixedExpense[]> {
+  const q = query(fixedExpensesRef, orderBy('createdAt', 'asc'))
+  const snapshot = await getDocs(q)
+  return snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as FixedExpense))
+}
+
+export async function createFixedExpense(data: CreateFixedExpenseDTO): Promise<string> {
+  const docRef = await addDoc(fixedExpensesRef, {
+    name: data.name,
+    budgetAmount: data.budgetAmount,
+    spentAmount: data.spentAmount,
+    createdAt: new Date(),
+  })
+  if (data.spentAmount > 0) {
+    const balance = await getBalance()
+    await upsertBalance({ total: (balance.total ?? 0) - data.spentAmount })
+  }
+  return docRef.id
+}
+
+export async function updateFixedExpense(id: string, data: UpdateFixedExpenseDTO): Promise<void> {
+  const ref = doc(db, 'fixedExpenses', id)
+  const snap = await getDoc(ref)
+  const currentData = snap.data()
+  const currentSpent = currentData?.spentAmount ?? 0
+  const fields: Record<string, number> = {}
+  if (data.budgetAmount !== undefined) fields.budgetAmount = data.budgetAmount
+  if (data.spentAmount !== undefined) fields.spentAmount = data.spentAmount
+  await updateDoc(ref, fields)
+
+  if (data.spentAmount !== undefined) {
+    const diff = data.spentAmount - currentSpent
+    if (diff > 0) {
+      const balance = await getBalance()
+      await upsertBalance({ total: (balance.total ?? 0) - diff })
+    }
+  }
+}
+
+export async function resetFixedExpense(id: string): Promise<void> {
+  const ref = doc(db, 'fixedExpenses', id)
+  const snap = await getDoc(ref)
+  const currentSpent = (snap.data()?.spentAmount as number) ?? 0
+  await updateDoc(ref, { spentAmount: 0 })
+  if (currentSpent > 0) {
+    const balance = await getBalance()
+    await upsertBalance({ total: (balance.total ?? 0) + currentSpent })
+  }
 }
 
 const balanceRef = doc(db, 'balance', 'main')
 
 export async function getBalance(): Promise<Balance> {
   const snap = await getDoc(balanceRef)
-  return snap.exists() ? snap.data() as Balance : { total: 0, lastProcessedWeek: '' }
+  if (!snap.exists()) return { total: 0, emergencyFund: 0, lastProcessedWeek: '', reconciled: false }
+  const data = snap.data()
+  return {
+    total: data.total ?? 0,
+    emergencyFund: data.emergencyFund ?? 0,
+    lastProcessedWeek: data.lastProcessedWeek ?? '',
+    reconciled: data.reconciled ?? false,
+  }
 }
 
 export async function upsertBalance(data: Partial<Balance>): Promise<void> {
-  await setDoc(balanceRef, data, { merge: true })
+  const existing = await getBalance()
+  await setDoc(balanceRef, {
+    total: existing.total,
+    emergencyFund: existing.emergencyFund,
+    lastProcessedWeek: existing.lastProcessedWeek,
+    reconciled: existing.reconciled,
+    ...data,
+  })
+}
+
+export async function reconcileBalance(): Promise<void> {
+  const balance = await getBalance()
+  if (balance.reconciled) return
+
+  const milestoneSnap = await getDocs(milestonesRef)
+  const milestonesTotal = milestoneSnap.docs.reduce((sum, d) => sum + ((d.data().currentAmount as number) ?? 0), 0)
+
+  const fixedSnap = await getDocs(fixedExpensesRef)
+  const fixedTotal = fixedSnap.docs.reduce((sum, d) => sum + ((d.data().spentAmount as number) ?? 0), 0)
+
+  await setDoc(balanceRef, {
+    total: balance.total - milestonesTotal - fixedTotal,
+    emergencyFund: balance.emergencyFund,
+    lastProcessedWeek: balance.lastProcessedWeek,
+    reconciled: true,
+  })
 }

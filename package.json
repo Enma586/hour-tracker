@@ -9,7 +9,10 @@
     "preview": "vite preview",
     "lint": "tsc --noEmit",
     "deploy:cf": "npx wrangler pages deploy dist",
-    "deploy:vercel": "npx vercel --prod"
+    "deploy:vercel": "npx vercel --prod",
+    "reset:reconciled": "node scripts/reset-reconciled.mjs",
+    "reset:db": "node scripts/reset-db.mjs",
+    "reset:goals": "node scripts/reset-goals.mjs"
   },
   "dependencies": {
     "@hookform/resolvers": "^4.1.3",

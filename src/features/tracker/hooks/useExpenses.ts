@@ -22,3 +22,15 @@ export function useCreateExpense() {
     },
   })
 }
+
+export function useDeleteExpense() {
+  const queryClient = useQueryClient()
+
+  return useMutation({
+    mutationFn: ({ id, amount }: { id: string; amount: number }) => service.deleteExpense(id, amount),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: expensesKey })
+      queryClient.invalidateQueries({ queryKey: ['balance'] })
+    },
+  })
+}
